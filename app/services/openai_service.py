@@ -83,6 +83,63 @@ def _image_bytes_to_jpeg(image_bytes: bytes, file_type: str) -> bytes:
     return out.getvalue()
 
 
+INSIGHTS_SYSTEM_PROMPT = """You are a medical AI assistant that analyzes patient medical reports and provides clear, helpful health observations.
+You must respond ONLY with valid JSON matching this exact structure:
+{
+  "summary": "A 2-3 sentence overall health summary",
+  "observations": [
+    {
+      "title": "Short title",
+      "detail": "Detailed explanation",
+      "severity": "info|warning|critical|positive"
+    }
+  ],
+  "recommendations": ["Actionable recommendation 1", "Actionable recommendation 2"],
+  "disclaimer": "Standard medical disclaimer"
+}
+
+Rules:
+- severity "critical" = values flagged CRITICAL or very abnormal
+- severity "warning" = values flagged HIGH or LOW
+- severity "positive" = normal results or improving trends
+- severity "info" = general observations
+- Be concise but informative
+- Always include a disclaimer about consulting a doctor
+- Focus on patterns across multiple reports if available"""
+
+
+def generate_insights(report_summary: str) -> dict:
+    """Generate AI health insights from a text summary of medical reports using GPT-4o-mini."""
+    client = _get_client()
+    logger.info("Calling GPT-4o-mini for health insights generation.")
+
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": INSIGHTS_SYSTEM_PROMPT},
+            {
+                "role": "user",
+                "content": (
+                    "Please analyze the following medical report data and provide AI health observations:\n\n"
+                    + report_summary
+                ),
+            },
+        ],
+        temperature=0.3,
+        response_format={"type": "json_object"},
+    )
+
+    content = response.choices[0].message.content or ""
+    if not content:
+        raise ValueError("Empty response from OpenAI")
+
+    try:
+        return json.loads(content)
+    except json.JSONDecodeError as exc:
+        logger.error("Failed to parse insights response as JSON: %s", exc)
+        raise ValueError(f"Failed to parse insights response: {exc}") from exc
+
+
 def extract_report_content(file_bytes: bytes, file_type: str) -> dict:
     """Extract structured medical data from a report file using GPT-4o vision.
 

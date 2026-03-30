@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.config import settings
-from app.routers import auth, reports
+from app.routers import auth, reports, insights
 
 logging.basicConfig(
     level=logging.INFO,
@@ -37,6 +37,7 @@ app.add_middleware(
 # ---------------------------------------------------------------------------
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(reports.router, prefix="/api/v1")
+app.include_router(insights.router, prefix="/api/v1")
 
 # ---------------------------------------------------------------------------
 # Health check
